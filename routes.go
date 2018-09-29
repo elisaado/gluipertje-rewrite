@@ -18,5 +18,7 @@ func initRoutes() *echo.Echo {
 	api.GET("/message/:id", handlers.GetMessageById)
 	api.POST("/token", handlers.RevokeToken)
 	api.GET("/:token/me", handlers.GetUserByToken)
+	api.POST("/images", handlers.SendImage)
+	api.Static("/images", "images")
 	return e
 }

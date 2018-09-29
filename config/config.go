@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Host        string `json:"host"`
 	Port        int    `json:"port"`
+	ExternalURL string `json:"external_url"`
 }
 
 var C Config

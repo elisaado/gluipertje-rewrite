@@ -1,11 +1,10 @@
 package main
 
 import (
-	"strconv"
-
 	"github.com/elisaado/gluipertje-rewrite/config"
 	"github.com/elisaado/gluipertje-rewrite/db"
 	"github.com/labstack/echo/middleware"
+	"strconv"
 )
 
 func main() {

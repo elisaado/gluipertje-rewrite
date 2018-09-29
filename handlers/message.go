@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/elisaado/gluipertje-rewrite/config"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -95,6 +98,63 @@ func SendMessage(c echo.Context) error {
 	m.CreatedAt = now
 	m.UpdatedAt = now
 	m.Text = mr.Text
+
+	db.DB.Save(&m)
+
+	return c.JSON(http.StatusOK, db.SafeMessage(m))
+}
+
+func SendImage(c echo.Context) error {
+	token := c.FormValue("token")
+	text := c.FormValue("text")
+
+	if empty(token) {
+		return c.JSON(http.StatusBadRequest, "Missing parameter token")
+	}
+
+	var u models.User
+	if err := db.DB.One("Token", token, &u); err != nil {
+		return c.JSON(http.StatusNotFound, "User not found")
+	}
+
+	file, err := c.FormFile("image")
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusBadRequest, "Missing parameter image")
+	}
+
+	if file.Size > 5000000 { // 5 mb
+		return c.JSON(http.StatusBadRequest, "File size may not exceed 5 megabytes")
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, "Internal server errror")
+	}
+	defer src.Close()
+
+	// Destination
+	dst, err := os.Create("images/" + randomString(5) + file.Filename)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, "Internal server errror")
+	}
+	defer dst.Close()
+
+	// Copy
+	if _, err = io.Copy(dst, src); err != nil {
+		return c.JSON(http.StatusInternalServerError, "Internal server errror")
+	}
+
+	var m models.Message
+	now := time.Now()
+
+	m.Type = "image"
+	m.CreatedAt = now
+	m.UpdatedAt = now
+	m.Text = text
+	m.From = u
+	m.FromId = u.ID
+	m.SRC = config.C.ExternalURL + "/api/" + dst.Name()
 
 	db.DB.Save(&m)
 
