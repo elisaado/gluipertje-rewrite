@@ -101,7 +101,7 @@ func CreateUser(c echo.Context) error {
 
 	// duplicate user check
 	var du models.User
-	if err := db.DB.One("Username", u.Username, &du); err != storm.ErrNotFound {
+	if err := db.DB.One("Username", strings.ToLower(u.Username), &du); err != storm.ErrNotFound {
 		return c.JSON(http.StatusConflict, "User with username already exists")
 	}
 
