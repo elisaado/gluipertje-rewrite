@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/elisaado/gluipertje-rewrite/config"
 	"io"
 	"net/http"
 	"os"
@@ -10,10 +10,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elisaado/gluipertje-rewrite/config"
+	"github.com/elisaado/gluipertje-rewrite/util"
+	"golang.org/x/net/websocket"
+
 	"github.com/asdine/storm"
 	"github.com/elisaado/gluipertje-rewrite/db"
 	"github.com/elisaado/gluipertje-rewrite/models"
 	"github.com/labstack/echo"
+)
+
+var (
+	MChan        chan string // channel with json encoded messages
+	Subschribers []*websocket.Conn
 )
 
 func GetMessages(c echo.Context) error {
@@ -101,7 +110,13 @@ func SendMessage(c echo.Context) error {
 
 	db.DB.Save(&m)
 
-	return c.JSON(http.StatusOK, db.SafeMessage(m))
+	m = db.SafeMessage(m)
+	json, err := json.Marshal(&m)
+	if err != nil {
+		fmt.Println(err)
+	}
+	MChan <- string(json)
+	return c.JSON(http.StatusOK, m)
 }
 
 func SendImage(c echo.Context) error {
@@ -159,4 +174,25 @@ func SendImage(c echo.Context) error {
 	db.DB.Save(&m)
 
 	return c.JSON(http.StatusOK, db.SafeMessage(m))
+}
+
+func SubschribeToMessages(c echo.Context) error {
+	websocket.Handler(func(ws *websocket.Conn) {
+		Subschribers = append(Subschribers, ws)
+		select {}
+	}).ServeHTTP(c.Response(), c.Request())
+	return nil
+}
+
+func BroadcastNewMessages() {
+	for m := range MChan {
+		for i, subschriber := range Subschribers {
+			err := websocket.Message.Send(subschriber, m)
+			if err != nil {
+				fmt.Println(err)
+				subschriber.Close()
+				Subschribers = util.RemoveConn(Subschribers, i)
+			}
+		}
+	}
 }
